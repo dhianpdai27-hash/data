@@ -1,88 +1,370 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Aplikasi Posyandu</title>
-<link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#2e7d32">
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<style>
-body{margin:0;font-family:Segoe UI,sans-serif;background:#f4f6f8}
-header{background:#2e7d32;color:#fff;padding:15px;text-align:center}
-nav{display:flex;background:#fff}
-nav button{flex:1;padding:12px;border:none;background:none;font-weight:bold}
-nav button.active{color:#2e7d32;border-bottom:3px solid #2e7d32}
-section{display:none;padding:15px}
-section.active{display:block}
-.card{background:#fff;border-radius:10px;padding:15px;margin-bottom:15px}
-input,select,textarea{width:100%;padding:10px;margin:5px 0}
-button.primary{background:#2e7d32;color:#fff;padding:10px;border:none;border-radius:8px;width:100%}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Sistem RT 05 - Versi 15.7 (Final Fixed)</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root { --primary: #0f172a; --accent: #2563eb; }
+        body { background-color: #f1f5f9; padding-bottom: 90px; font-family: sans-serif; }
+        .app-card { border: none; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); background: white; margin-bottom: 15px; padding: 15px; }
+        .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; background: white; display: flex; border-top: 1px solid #e2e8f0; z-index: 1000; padding: 10px 0; }
+        .nav-item-btn { border: none; background: none; color: #64748b; display: flex; flex-direction: column; align-items: center; font-size: 11px; flex: 1; outline: none; }
+        .nav-item-btn.active { color: var(--accent); font-weight: bold; }
+        .header-mobile { background: var(--primary); color: white; padding: 20px; border-radius: 0 0 20px 20px; margin-bottom: 15px; }
+        .badge-keringanan { background: #fef3c7; color: #92400e; border: 1px solid #f59e0b; font-size: 9px; padding: 2px 5px; border-radius: 4px; }
+        .tunggakan-item { border-left: 4px solid #dc3545; background: #fff5f5; margin-bottom: 8px; padding: 10px; border-radius: 8px; }
+    </style>
 </head>
 <body>
-<header>
-<h2 id="namaPosyandu">POSYANDU MAJU SEHAT</h2>
-<small id="alamatPosyandu">Desa Contoh</small>
-</header>
-<nav>
-<button class="active" onclick="showTab('data')">Data</button>
-<button onclick="showTab('periksa')">Pemeriksaan</button>
-<button onclick="showTab('riwayat')">Riwayat</button>
-<button onclick="showTab('pengaturan')">Pengaturan</button>
+
+<div class="header-mobile">
+    <div class="d-flex justify-content-between align-items-center">
+        <div><h5 class="mb-0 fw-bold" id="rt-title">RT 05</h5><small id="current-date" class="opacity-75"></small></div>
+        <div class="text-end"><small class="opacity-75 d-block">Saldo Gabungan</small><h5 id="dash-saldo-top" class="mb-0 fw-bold text-info">Rp 0</h5></div>
+    </div>
+</div>
+
+<div class="container px-3">
+    <div id="section-dashboard">
+        <div class="app-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="fw-bold m-0 text-uppercase">REKAP WARGA & KAS</h6>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-success dropdown-toggle" data-bs-toggle="dropdown">Laporan</button>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" onclick="cetakLaporanKategori()">Laporan Kas Kategori</a></li>
+                        <li><a class="dropdown-item" onclick="cetakLaporanBulanan()">Laporan Iuran Bulanan</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="row g-2 text-center border-bottom pb-3 mb-3">
+                <div class="col-3 border-end"><small class="text-muted d-block">Pria</small><span id="st-l" class="fw-bold">0</span></div>
+                <div class="col-3 border-end"><small class="text-muted d-block">Wanita</small><span id="st-p" class="fw-bold">0</span></div>
+                <div class="col-3 border-end"><small class="text-muted d-block">Jiwa</small><span id="st-total" class="fw-bold text-primary">0</span></div>
+                <div class="col-3"><small class="text-muted d-block">KK</small><span id="st-kk" class="fw-bold text-success">0</span></div>
+            </div>
+            <h6 class="fw-bold mb-2 text-danger" style="font-size: 11px;">WARGA BELUM BAYAR (TAGIHAN > 0):</h6>
+            <div id="list-tunggakan" style="max-height: 350px; overflow-y: auto;"></div>
+        </div>
+    </div>
+
+    <div id="section-warga" style="display:none;">
+        <div class="d-flex justify-content-between mb-3 align-items-center">
+            <h6 class="fw-bold m-0">DATA WARGA</h6>
+            <button class="btn btn-primary btn-sm rounded-pill" onclick="tambahWargaBaru()">+ Tambah Warga</button>
+        </div>
+        <div id="list-warga-mobile"></div>
+    </div>
+
+    <div id="section-kas" style="display:none;">
+        <h6 class="fw-bold mb-3">KAS MASUK/KELUAR</h6>
+        <div class="app-card border-top border-primary border-4">
+            <select id="kas-kat" class="form-select mb-2">
+                <option value="Jimpitan">Kas Jimpitan / Umum</option>
+                <option value="17an">Kas 17-an</option>
+                <option value="Pembangunan">Kas Pembangunan</option>
+            </select>
+            <input type="text" id="kas-ket" class="form-control mb-2" placeholder="Keterangan">
+            <input type="number" id="kas-nom" class="form-control mb-2" placeholder="Nominal Rp">
+            <div class="row g-2">
+                <div class="col-6"><button onclick="addKas('masuk')" class="btn btn-success w-100 fw-bold">MASUK</button></div>
+                <div class="col-6"><button onclick="addKas('keluar')" class="btn btn-danger w-100 fw-bold">KELUAR</button></div>
+            </div>
+        </div>
+        <div id="list-kas-full"></div>
+    </div>
+
+    <div id="section-settings" style="display:none;">
+        <div class="app-card mb-3">
+            <h6 class="fw-bold border-bottom pb-2">SALDO AWAL</h6>
+            <div class="mb-2"><label class="small">Jimpitan</label><input type="number" id="sa-jimpitan" class="form-control form-control-sm"></div>
+            <div class="mb-2"><label class="small">17-an</label><input type="number" id="sa-17an" class="form-control form-control-sm"></div>
+            <div class="mb-2"><label class="small">Pembangunan</label><input type="number" id="sa-pembangunan" class="form-control form-control-sm"></div>
+            <button class="btn btn-primary btn-sm w-100" onclick="saveSaldoAwal()">Simpan Saldo Awal</button>
+        </div>
+        <div class="app-card mb-3">
+            <h6 class="fw-bold border-bottom pb-2">JENIS IURAN</h6>
+            <div id="list-setting-iuran" class="list-group list-group-flush mb-2"></div>
+            <div class="input-group input-group-sm">
+                <input type="text" id="set-iuran-nama" class="form-control" placeholder="Nama Iuran">
+                <input type="number" id="set-iuran-rp" class="form-control" placeholder="Rp">
+                <button class="btn btn-success" onclick="addSettingIuran()">+</button>
+            </div>
+        </div>
+        <button onclick="exportFullData()" class="btn btn-dark w-100 mb-2">BACKUP EXCEL</button>
+        <div class="app-card border-danger">
+            <h6 class="fw-bold text-danger">PENGATURAN RESET</h6>
+            <button onclick="resetHanyaTransaksi()" class="btn btn-outline-danger btn-sm w-100 mb-2">Reset Transaksi (Warga Tetap)</button>
+            <button onclick="resetData()" class="btn btn-link text-danger w-100 btn-sm mb-3">Reset Total</button>
+            <label class="small fw-bold">Restore Backup:</label>
+            <input type="file" id="importFile" class="form-control form-control-sm mb-2">
+            <button onclick="superRestore()" class="btn btn-danger btn-sm w-100">Proses Restore</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modalWarga" tabindex="-1"><div class="modal-dialog modal-dialog-centered"><div class="modal-content"><div class="modal-body">
+    <h6 class="fw-bold mb-3">Data Warga</h6>
+    <input type="text" id="f-kk" class="form-control mb-2" placeholder="No KK">
+    <input type="text" id="f-ayah" class="form-control mb-2" placeholder="Kepala Keluarga">
+    <input type="text" id="f-alamat" class="form-control mb-2" placeholder="Blok / No Rumah">
+    <div class="row g-2 mb-2">
+        <div class="col-6"><label class="small">Pria</label><input type="number" id="f-jml-l" class="form-control"></div>
+        <div class="col-6"><label class="small">Wanita</label><input type="number" id="f-jml-p" class="form-control"></div>
+    </div>
+    <div class="form-check form-switch mb-3 p-2 bg-light border rounded">
+        <input class="form-check-input ms-0 me-2" type="checkbox" id="f-keringanan">
+        <label class="form-check-label small fw-bold text-primary" for="f-keringanan">AKTIFKAN KERINGANAN (Janda/Khusus)</label>
+    </div>
+    <input type="text" id="f-note" class="form-control mb-3" placeholder="Catatan">
+    <div class="d-flex gap-2">
+        <button onclick="saveWarga()" class="btn btn-primary w-100">SIMPAN</button>
+        <button id="btn-hapus-warga" class="btn btn-outline-danger w-50" style="display:none;">HAPUS</button>
+    </div>
+</div></div></div></div>
+
+<div class="modal fade" id="modalIuran" tabindex="-1"><div class="modal-dialog modal-fullscreen"><div class="modal-content">
+    <div class="modal-header py-2"><h6 id="iuran-nama-warga" class="m-0 fw-bold"></h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+        <div id="msg-keringanan" class="alert alert-warning py-2 mb-3 small" style="display:none;">Status: <b>KHUSUS / KERINGANAN</b>. Warga ini tidak masuk daftar tagihan.</div>
+        <label class="small fw-bold">Bulan Pembayaran:</label>
+        <select id="iuran-pilih-bulan" class="form-select mb-3" onchange="selBln=this.value; renderKomp();"></select>
+        <div id="list-komponen-iuran"></div>
+        <hr><div class="d-flex justify-content-between fw-bold"><span>ESTIMASI BAYAR:</span><span id="iuran-total-bayar" class="text-primary"></span></div>
+    </div>
+</div></div></div>
+
+<nav class="bottom-nav">
+    <button class="nav-item-btn active" onclick="nav('dashboard', this)"><span>🏠</span>Home</button>
+    <button class="nav-item-btn" onclick="nav('warga', this)"><span>👥</span>Warga</button>
+    <button class="nav-item-btn" onclick="nav('kas', this)"><span>💰</span>Kas</button>
+    <button class="nav-item-btn" onclick="nav('settings', this)"><span>⚙️</span>Setting</button>
 </nav>
 
-<section id="data" class="active">
-<div class="card">
-<h3>Data Awal</h3>
-<select id="kategori"><option>Balita</option><option>Remaja</option><option>Pra Lansia</option><option>Lansia</option></select>
-<input id="nik" placeholder="NIK">
-<input id="nama" placeholder="Nama">
-<input id="nokk" placeholder="No KK">
-<input id="ortu" placeholder="Nama Orang Tua">
-<input id="alamat" placeholder="Alamat">
-<input type="date" id="tgl">
-<button class="primary" onclick="simpan()">Simpan</button>
-</div>
-</section>
-
-<section id="periksa">
-<div class="card">
-<h3>Pemeriksaan</h3>
-<input id="nikCari" placeholder="NIK">
-<button class="primary" onclick="cari()">Cari</button>
-<div id="hasil"></div>
-<input id="bb" placeholder="Berat Badan">
-<input id="tb" placeholder="Tinggi Badan">
-<button class="primary" onclick="simpanPeriksa()">Simpan Pemeriksaan</button>
-</div>
-</section>
-
-<section id="riwayat">
-<div class="card">
-<h3>Riwayat</h3>
-<table id="tabel"></table>
-</div>
-</section>
-
-<section id="pengaturan">
-<div class="card">
-<h3>Pengaturan</h3>
-<input id="setNama" placeholder="Nama Posyandu">
-<input id="setAlamat" placeholder="Alamat">
-<button class="primary" onclick="simpanSetting()">Simpan</button>
-</div>
-</section>
-
 <script>
-if('serviceWorker' in navigator){navigator.serviceWorker.register('service-worker.js')}
-let data=JSON.parse(localStorage.getItem('data')||'[]')
-let periksa=JSON.parse(localStorage.getItem('periksa')||'[]')
-function showTab(id){document.querySelectorAll('section').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
-function simpan(){data.push({nik:nik.value,nama:nama.value});localStorage.setItem('data',JSON.stringify(data));alert('tersimpan')}
-function cari(){let d=data.find(x=>x.nik===nikCari.value);hasil.innerHTML=d?d.nama:'tidak ada'}
-function simpanPeriksa(){periksa.push({nik:nikCari.value,bb:bb.value,tb:tb.value});localStorage.setItem('periksa',JSON.stringify(periksa));alert('ok')}
-function simpanSetting(){namaPosyandu.innerText=setNama.value;alamatPosyandu.innerText=setAlamat.value}
+    let db = JSON.parse(localStorage.getItem('RT_DB_V157')) || { 
+        namaRT: 'RT 05', saldoAwalKategori: { Jimpitan: 0, "17an": 0, Pembangunan: 0 },
+        warga: [], kas: [], settings: [{id: 1, nama: 'Iuran Wajib', nominal: 20000}] 
+    };
+    const blnArr = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+    let selId = null, selBln = blnArr[new Date().getMonth()];
+    let mWr, mIr;
+
+    window.onload = () => {
+        mWr = new bootstrap.Modal(document.getElementById('modalWarga'));
+        mIr = new bootstrap.Modal(document.getElementById('modalIuran'));
+        document.getElementById('rt-title').innerText = db.namaRT;
+        render();
+    };
+
+    function save() { localStorage.setItem('RT_DB_V157', JSON.stringify(db)); render(); }
+
+    function nav(s, el) { 
+        document.querySelectorAll('[id^="section-"]').forEach(x => x.style.display = 'none'); 
+        document.getElementById('section-' + s).style.display = 'block'; 
+        document.querySelectorAll('.nav-item-btn').forEach(b => b.classList.remove('active')); 
+        el.classList.add('active'); 
+        if(s === 'settings') loadSettings();
+        render(); 
+    }
+
+    function render() {
+        let l=0, p=0, totalIuranMasuk = 0;
+        db.warga.forEach(w => { 
+            l += parseInt(w.jmlL||0); p += parseInt(w.jmlP||0); 
+            if(w.pembayaran) {
+                Object.keys(w.pembayaran).forEach(b => {
+                    w.pembayaran[b].forEach(sid => {
+                        const s = db.settings.find(x => x.id === sid);
+                        if(s) totalIuranMasuk += s.nominal;
+                    });
+                });
+            }
+        });
+        
+        let tM = db.kas.filter(k=>k.tipe==='masuk').reduce((a,b)=>a+b.nom, 0);
+        let tK = db.kas.filter(k=>k.tipe==='keluar').reduce((a,b)=>a+b.nom, 0);
+        let saTotal = Object.values(db.saldoAwalKategori).reduce((a,b)=>a+b, 0);
+
+        document.getElementById('st-l').innerText = l;
+        document.getElementById('st-p').innerText = p;
+        document.getElementById('st-total').innerText = l+p;
+        document.getElementById('st-kk').innerText = db.warga.length;
+        document.getElementById('dash-saldo-top').innerText = "Rp " + (saTotal + totalIuranMasuk + tM - tK).toLocaleString();
+
+        document.getElementById('list-warga-mobile').innerHTML = db.warga.map(w => `
+            <div class="app-card d-flex justify-content-between align-items-center">
+                <div onclick="editWarga(${w.id})">
+                    <h6 class="mb-0 fw-bold">${w.nama} ${w.keringanan ? '<span class="badge-keringanan">Khusus</span>' : ''}</h6>
+                    <small class="text-muted">${w.alamat||'-'}</small>
+                </div>
+                <button class="btn btn-sm btn-outline-primary px-3" onclick="openIuran(${w.id})">Iuran</button>
+            </div>`).join('');
+
+        document.getElementById('list-kas-full').innerHTML = db.kas.slice().reverse().map(k => `
+            <div class="p-2 border-bottom d-flex justify-content-between align-items-center">
+                <div><span class="badge bg-secondary mb-1" style="font-size:9px">${k.kat}</span><br><b>${k.ket}</b><br><small class="text-muted">${k.tgl}</small></div>
+                <div class="text-end"><span class="${k.tipe==='masuk'?'text-success':'text-danger'} fw-bold">${k.nom.toLocaleString()}</span><br><button class="btn btn-sm text-muted p-0" onclick="deleteKas(${k.id})" style="font-size:10px">Hapus</button></div>
+            </div>`).join('');
+
+        renderTunggakan();
+    }
+
+    function renderTunggakan() {
+        const curIdx = new Date().getMonth();
+        let html = '';
+        db.warga.forEach(w => {
+            // LOGIKA KUNCI: Jika keringanan TRUE, langsung lewati (tidak dianggap penunggak)
+            if(w.keringanan === true) return; 
+            
+            let tunggakanBulan = [];
+            let totalTagihan = 0;
+            
+            for(let i = 0; i <= curIdx; i++) {
+                const b = blnArr[i];
+                const paidIds = (w.pembayaran && w.pembayaran[b]) ? w.pembayaran[b] : [];
+                db.settings.forEach(s => {
+                    if(!paidIds.includes(s.id)) {
+                        if(!tunggakanBulan.includes(b)) tunggakanBulan.push(b);
+                        totalTagihan += s.nominal;
+                    }
+                });
+            }
+
+            if(totalTagihan > 0) {
+                html += `
+                <div class="tunggakan-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="fw-bold">${w.nama} <span class="badge bg-danger" style="font-size:9px">${tunggakanBulan.length} Bln</span></div>
+                        <div class="text-muted" style="font-size:10px">Belum: ${tunggakanBulan.join(', ')}</div>
+                        <div class="text-danger fw-bold">Tagihan: Rp ${totalTagihan.toLocaleString()}</div>
+                    </div>
+                    <button class="btn btn-sm btn-primary px-3" onclick="openIuran(${w.id})">Bayar</button>
+                </div>`;
+            }
+        });
+        document.getElementById('list-tunggakan').innerHTML = html || '<div class="text-center text-muted p-3 small">Semua warga sudah lunas/khusus!</div>';
+    }
+
+    function tambahWargaBaru() { selId=null; document.querySelectorAll('#modalWarga input').forEach(i=> { if(i.type==='checkbox') i.checked=false; else i.value=''; }); document.getElementById('btn-hapus-warga').style.display = 'none'; mWr.show(); }
+    function editWarga(id) { 
+        selId=id; const w = db.warga.find(x=>x.id===id);
+        document.getElementById('f-kk').value=w.kk||''; 
+        document.getElementById('f-ayah').value=w.nama||'';
+        document.getElementById('f-alamat').value=w.alamat||''; 
+        document.getElementById('f-jml-l').value=w.jmlL||0;
+        document.getElementById('f-jml-p').value=w.jmlP||0; 
+        document.getElementById('f-keringanan').checked = w.keringanan || false;
+        document.getElementById('f-note').value=w.note||'';
+        document.getElementById('btn-hapus-warga').style.display = 'block';
+        mWr.show();
+    }
+    function saveWarga() {
+        const d = { id: selId||Date.now(), kk: document.getElementById('f-kk').value, nama: document.getElementById('f-ayah').value, alamat: document.getElementById('f-alamat').value, jmlL: document.getElementById('f-jml-l').value, jmlP: document.getElementById('f-jml-p').value, keringanan: document.getElementById('f-keringanan').checked, note: document.getElementById('f-note').value, pembayaran: (selId ? (db.warga.find(x=>x.id===selId).pembayaran || {}) : {}) };
+        if(!d.nama) return alert("Nama wajib diisi!");
+        if(selId) db.warga = db.warga.map(w=>w.id===selId?d:w); else db.warga.push(d);
+        save(); mWr.hide();
+    }
+
+    function openIuran(id) {
+        selId=id; const w = db.warga.find(x=>x.id===id);
+        document.getElementById('iuran-nama-warga').innerText = w.nama;
+        document.getElementById('msg-keringanan').style.display = w.keringanan ? 'block' : 'none';
+        document.getElementById('iuran-pilih-bulan').innerHTML = blnArr.map(b=>`<option value="${b}" ${b===selBln?'selected':''}>${b}</option>`).join('');
+        renderKomp(); mIr.show();
+    }
+    function renderKomp() {
+        const w = db.warga.find(x=>x.id===selId); 
+        if(!w.pembayaran) w.pembayaran={}; 
+        if(!w.pembayaran[selBln]) w.pembayaran[selBln]=[];
+        let total = 0;
+        document.getElementById('list-komponen-iuran').innerHTML = db.settings.map(s => {
+            const isChecked = w.keringanan || w.pembayaran[selBln].includes(s.id);
+            if(isChecked && !w.keringanan) total += s.nominal;
+            return `<div class="d-flex justify-content-between p-3 border-bottom align-items-center ${w.keringanan?'opacity-50':''}">
+                <span>${s.nama} <br><small class="text-muted">Rp ${s.nominal.toLocaleString()}</small></span>
+                <input type="checkbox" style="width:28px; height:28px" ${isChecked?'checked':''} ${w.keringanan?'disabled':''} onchange="togglePay(${s.id})">
+            </div>`;
+        }).join('');
+        document.getElementById('iuran-total-bayar').innerText = "Rp " + total.toLocaleString();
+    }
+    function togglePay(sid) {
+        const w = db.warga.find(x=>x.id===selId);
+        if(w.keringanan) return;
+        const idx = w.pembayaran[selBln].indexOf(sid);
+        if(idx > -1) w.pembayaran[selBln].splice(idx, 1); else w.pembayaran[selBln].push(sid);
+        save(); renderKomp();
+    }
+
+    function addKas(t) {
+        const kI=document.getElementById('kas-ket'), nI=document.getElementById('kas-nom'), katI=document.getElementById('kas-kat');
+        if(!kI.value || !nI.value) return alert("Isi data!");
+        db.kas.push({id:Date.now(), tgl:new Date().toLocaleDateString('id-ID'), kat:katI.value, ket:kI.value, nom:parseInt(nI.value), tipe:t});
+        save(); kI.value=''; nI.value='';
+    }
+    function deleteKas(id) { if(confirm('Hapus?')) { db.kas=db.kas.filter(k=>k.id!==id); save(); } }
+    function resetHanyaTransaksi() {
+        if(confirm('Hapus riwayat?')) {
+            db.kas = []; db.warga = db.warga.map(w => { return { ...w, pembayaran: {} }; });
+            save(); alert('Dibersihkan.');
+        }
+    }
+    function resetData() { if(confirm('Hapus total?')) { localStorage.clear(); location.reload(); } }
+    function loadSettings() {
+        document.getElementById('sa-jimpitan').value = db.saldoAwalKategori.Jimpitan;
+        document.getElementById('sa-17an').value = db.saldoAwalKategori["17an"];
+        document.getElementById('sa-pembangunan').value = db.saldoAwalKategori.Pembangunan;
+        document.getElementById('list-setting-iuran').innerHTML = db.settings.map(s => `
+            <div class="list-group-item d-flex justify-content-between align-items-center small p-2">
+                <span>${s.nama} (Rp ${s.nominal.toLocaleString()})</span>
+                <button class="btn btn-sm btn-link text-danger p-0" onclick="removeSettingIuran(${s.id})">Hapus</button>
+            </div>`).join('');
+    }
+    function saveSaldoAwal() { db.saldoAwalKategori.Jimpitan=parseInt(document.getElementById('sa-jimpitan').value)||0; db.saldoAwalKategori["17an"]=parseInt(document.getElementById('sa-17an').value)||0; db.saldoAwalKategori.Pembangunan=parseInt(document.getElementById('sa-pembangunan').value)||0; save(); alert('Saldo Disimpan'); }
+    function addSettingIuran() { const n=document.getElementById('set-iuran-nama').value, r=document.getElementById('set-iuran-rp').value; if(n){ db.settings.push({id:Date.now(), nama:n, nominal:parseInt(r)||0}); save(); loadSettings(); } }
+    function removeSettingIuran(id) { if(confirm('Hapus?')){ db.settings=db.settings.filter(s=>s.id!==id); save(); loadSettings(); } }
+    function cetakLaporanBulanan() {
+        const bln = prompt("Bulan (Jan/Feb...):", selBln);
+        let rows = db.warga.map((w, idx) => {
+            const isLunas = w.keringanan || (w.pembayaran[bln] && w.pembayaran[bln].length === db.settings.length);
+            return `<tr><td>${idx+1}</td><td>${w.nama}</td><td>${w.keringanan?'KHUSUS':(isLunas?'LUNAS':'BELUM')}</td></tr>`;
+        }).join('');
+        let l = window.open('', '_blank');
+        l.document.write(`<html><body><h2>Laporan RT 05 - ${bln}</h2><table border="1" width="100%">${rows}</table><script>window.print();<\/script></body></html>`);
+    }
+    function cetakLaporanKategori() {
+        let tables = '';
+        ["Jimpitan", "17an", "Pembangunan"].forEach(kat => {
+            let sa = db.saldoAwalKategori[kat] || 0;
+            let list = db.kas.filter(k=>k.kat===kat);
+            let tM = list.filter(k=>k.tipe==='masuk').reduce((a,b)=>a+b.nom,0);
+            let tK = list.filter(k=>k.tipe==='keluar').reduce((a,b)=>a+b.nom,0);
+            tables += `<h3>Kas ${kat}</h3><table border="1" width="100%"><tr><td>Saldo Awal</td><td align="right">${sa.toLocaleString()}</td></tr>${list.map(d=>`<tr><td>${d.ket}</td><td align="right">${d.nom.toLocaleString()}</td></tr>`).join('')}<tr><td><b>AKHIR</b></td><td align="right"><b>${(sa+tM-tK).toLocaleString()}</b></td></tr></table><br>`;
+        });
+        let l = window.open('', '_blank');
+        l.document.write(`<html><body>${tables}<script>window.print();<\/script></body></html>`);
+    }
+    function superRestore() {
+        const file = document.getElementById('importFile').files[0];
+        if(!file) return alert("Pilih file!");
+        const r = new FileReader();
+        r.onload = function(e) {
+            try {
+                let txt = e.target.result;
+                let match = txt.match(/\{[\s\S]*\}/);
+                let clean = match[0].replace(/""/g, '"').replace(/\\n/g, " ");
+                let hasil = JSON.parse(clean);
+                if(hasil.warga) { db = { ...db, ...hasil }; save(); alert("Restore Sukses!"); location.reload(); }
+            } catch(err) { alert("Format Salah!"); }
+        };
+        r.readAsText(file);
+    }
+    function exportFullData() { const ws = XLSX.utils.json_to_sheet([{ backup: JSON.stringify(db) }]); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, "DATA"); XLSX.writeFile(wb, `BACKUP_RT05.xlsx`); }
+    document.getElementById('current-date').innerText = new Date().toLocaleDateString('id-ID', {day:'numeric', month:'long', year:'numeric'});
 </script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
